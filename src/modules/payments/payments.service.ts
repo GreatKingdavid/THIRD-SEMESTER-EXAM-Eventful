@@ -37,14 +37,24 @@ export class PaymentsService {
       (await prisma.ticket.create({ data: { eventId, userId, status: "PENDING" } }));
 
     const paystackRef = `evtf_${ticket.id}_${Date.now()}`;
-    const amountKobo = Math.round(event.price * 100); // Paystack expects the smallest currency unit
+const amountKobo = Math.round(event.price * 100); // Paystack expects the smallest currency unit
 
-    const { data } = await paystackClient.post("/transaction/initialize", {
-      email: user.email,
-      amount: amountKobo,
-      reference: paystackRef,
-      metadata: { ticketId: ticket.id, eventId, userId },
-    });
+let data;
+try {
+  const response = await paystackClient.post("/transaction/initialize", {
+    email: user.email,
+    amount: amountKobo,
+    reference: paystackRef,
+    metadata: { ticketId: ticket.id, eventId, userId },
+  });
+  data = response.data;
+} catch (err) {
+  // Surface Paystack's actual rejection reason instead of a generic 400 in the logs.
+  const axiosErr = err as { response?: { data?: unknown } };
+  throw ApiError.badRequest(
+    `Paystack rejected the transaction: ${JSON.stringify(axiosErr.response?.data ?? (err as Error).message)}`
+  );
+}
 
     await prisma.payment.upsert({
       where: { ticketId: ticket.id },
