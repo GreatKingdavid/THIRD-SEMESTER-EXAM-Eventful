@@ -16,6 +16,11 @@ import analyticsRoutes from "./modules/analytics/analytics.routes";
 
 export const app = express();
 
+// Render (and most hosting platforms) sit behind a reverse proxy that adds
+// X-Forwarded-For. Without this, express-rate-limit can't safely identify
+// clients and throws on every request.
+app.set("trust proxy", 1);
+
 app.use(helmet());
 app.use(cors());
 app.use(globalLimiter);
